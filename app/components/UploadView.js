@@ -17,21 +17,28 @@ export default function UploadView({ onFileSelect }) {
         setIsDragging(false);
     };
 
-    const handleDrop = (e) => {
-        e.preventDefault();
-        setIsDragging(false);
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            onFileSelect(e.dataTransfer.files[0]);
-        }
+    const processAndCrop = (file) => {
+        // Bypass cropping to allow full context (headers + handwriting)
+        return Promise.resolve(file);
     };
 
     const handleClick = () => {
         fileInputRef.current?.click();
     };
 
-    const handleFileChange = (e) => {
+    const handleDrop = async (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const croppedFile = await processAndCrop(e.dataTransfer.files[0]);
+            onFileSelect(croppedFile);
+        }
+    };
+
+    const handleFileChange = async (e) => {
         if (e.target.files && e.target.files.length > 0) {
-            onFileSelect(e.target.files[0]);
+            const croppedFile = await processAndCrop(e.target.files[0]);
+            onFileSelect(croppedFile);
         }
     };
 

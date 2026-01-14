@@ -22,11 +22,13 @@ export default function Home() {
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
 
-        // Enhance for OCR:
-        // 1. Grayscale reduces color noise.
-        // 2. High brightness/contrast makes subtle ink loops stand out against the paper.
-        ctx.filter = 'grayscale(1) contrast(1.5) brightness(1.1)';
+        // 1. Basic adjustments
+        // No filters applied. Sending raw image to model.
+        // 1. Basic adjustments
+        // No filters applied. Sending raw image to model.
         ctx.drawImage(img, 0, 0);
+
+        // Custom sharpening removed to preserve natural ink pressure artifacts.
 
         canvas.toBlob((blob) => {
           if (blob) {

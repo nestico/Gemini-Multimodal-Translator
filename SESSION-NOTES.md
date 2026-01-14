@@ -1,5 +1,27 @@
 # Session Notes: Gemini Multimodal Translator
 
+## Session Date: January 14, 2026 (Refining Accuracy)
+
+### Work Completed
+- **Architecture Overhaul**:
+    - **Single-Pass High-Fidelity Logic**: Replaced the Two-Pass system with a single, highly detailed prompt (`singlePassPrompt`) in `app/actions.js`.
+    - **Performance**: Reduced latency and complexity by fetching Transcription, Translation, and Cultural/Audit data in one API call.
+- **Prompt Engineering**:
+    - **"Literal Scribe" Role**: Defined a specialized persona focused on 100% factual accuracy.
+    - **Visual Audit**: Instructed the model to specifically "look at line 6" for key terms like "goat" (ፍየል) and "breeding" (ማራቢያ).
+    - **Narrative Flow**: Added guidelines to synthesize verified facts into a "warm, natural English letter" rather than a robotic list.
+    - **JSON Robustness**: Enhanced the prompt to strictly forbid markdown and included a fallback parser in the code to handle stray text.
+- **Image Processing Tuning**:
+    - **Removal of Filters**: Completely removed `grayscale`, `contrast`, and `brightness` filters in `app/page.js` to allow the model to see natural ink pressure and paper texture.
+    - **Cropping**: Disabled automatic cropping in `UploadView.js` to ensure the model sees the full page context, including the English header for verification.
+
+### Key Learnings
+- **Natural Images over Processed**: The Gemini model performs better on this specific handwriting verification task when shown the raw, natural image rather than a high-contrast binary version.
+- **Single Context Window**: Combining the transcription and translation tasks allows the model to better cross-reference the English header with the Amharic body.
+
+---
+
+
 ## Session Date: January 14, 2026 (Afternoon)
 
 ### Work Completed

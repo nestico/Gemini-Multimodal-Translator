@@ -4,10 +4,10 @@ A Next.js application that leverages Google's Gemini Multimodal capabilities to 
 
 ## Features
 
-- **Multimodal Analysis**: Upload images of handwritten text.
-- **Native Script Transcription**: Dockerizes original script from the image.
-- **Cultural Context**: Explains idioms, greetings, and cultural nuances found in the text.
-- **Direct Translation**: Provides fluent English translation.
+- **"Literal Scribe" Engine**: Specialized single-pass analysis for high-fidelity handwriting transcription.
+- **Fact Verification**: Automatically cross-references handwritten content with expected context (e.g., verifying specific Amharic terms).
+- **Narrative Synthesis**: Converts verified facts into warm, natural English letters.
+- **Multimodal Analysis**: Upload raw images for direct processing by Gemini 2.0 Flash.
 
 ## Getting Started
 

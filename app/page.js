@@ -27,9 +27,7 @@ export default function Home() {
   const [editedText, setEditedText] = useState('');
 
   // --- Export State ---
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFilename, setExportFilename] = useState('');
-  const [translatorName, setTranslatorName] = useState('');
+  const [translatorName, setTranslatorName] = useState(''); // Kept for future use if needed, or default
   const [isExporting, setIsExporting] = useState(false);
 
   const LANGUAGES = [
@@ -57,9 +55,6 @@ export default function Home() {
   useEffect(() => {
     if (result?.translation) {
       setEditedText(result.translation);
-      // Auto-generate filename if header info exists
-      const childID = result.headerInfo?.childID || 'Translation';
-      setExportFilename(`Translated_${childID}`);
     }
   }, [result]);
 
@@ -242,12 +237,13 @@ export default function Home() {
       // 2. Add Translation Page
       doc.addPage();
 
+      const childID = result.headerInfo?.childID || "N/A";
+
       // --- HEADER ---
       // Child ID at (margin, 30)
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(100);
-      const childID = result.headerInfo?.childID || "N/A";
       doc.text(`Child ID: ${childID}`, margin, 30);
 
       // Logo at (pageWidth - margin - 30, 15) -> 15 replaced with 10, h=30
@@ -276,23 +272,22 @@ export default function Home() {
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(10);
       doc.setTextColor(100);
-      doc.text(`Translated by: ${translatorName}`, margin, pageHeight - 20);
+      doc.text(`Translated by: ${translatorName || 'AI Scribe'}`, margin, pageHeight - 20);
       doc.text(`Date: ${dateStr}`, margin, pageHeight - 15);
 
-      // 3. Save with Base64 Data URI Method
-      let fileName = exportFilename;
-      fileName = fileName.replace(/[^a-zA-Z0-9\-_]/g, '_');
-      if (!fileName.toLowerCase().endsWith('.pdf')) fileName += '.pdf';
+      // 3. Save with Strict Blob Trigger & Sanitized Filename
+      const finalName = (result?.headerInfo?.childID ? `Letter_${result.headerInfo.childID}.pdf` : 'Letter_Translation.pdf').replace(/[^a-zA-Z0-9\-\_.]/g, '_');
 
-      const pdfBase64 = doc.output('datauristring');
+      const pdfOutput = doc.output('blob');
+      const blobUrl = URL.createObjectURL(pdfOutput);
       const link = document.createElement('a');
-      link.href = pdfBase64;
-      link.setAttribute('download', fileName);
+      link.href = blobUrl;
+      link.download = finalName; // Explicitly set the name here
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
 
-      setShowExportModal(false);
     } catch (error) {
       console.error("PDF Generation failed:", error);
       alert("Failed to generate PDF");
@@ -507,8 +502,8 @@ export default function Home() {
                 <p className="text-slate-400">Deciphering your document.</p>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setShowExportModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white transition-colors font-bold shadow-lg">
-                  <span>📥</span> Export Result
+                <button onClick={handleExportPDF} disabled={isExporting} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white transition-colors font-bold shadow-lg">
+                  <span>📥</span> {isExporting ? 'Generating...' : 'Export Result'}
                 </button>
                 <button onClick={handleReset} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface border border-white/10 hover:bg-white/5 text-white transition-colors">
                   <span>🔄</span> Change Image
@@ -605,32 +600,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Export Modal */}
-            <AnimatePresence>
-              {showExportModal && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
-                  <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-surface border border-white/10 rounded-2xl shadow-2xl p-8 relative">
-                    <button onClick={() => setShowExportModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">✕</button>
-                    <h2 className="text-2xl font-bold text-white mb-2">Export to PDF</h2>
-                    <p className="text-slate-400 mb-6 text-sm">Configure your document settings below.</p>
 
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Filename</label>
-                        <input type="text" value={exportFilename} onChange={(e) => setExportFilename(e.target.value)} placeholder="Enter filename" className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-primary focus:outline-none" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Translator Name</label>
-                        <input type="text" value={translatorName} onChange={(e) => setTranslatorName(e.target.value)} placeholder="Your Name" className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-primary focus:outline-none" />
-                      </div>
-                      <button onClick={handleExportPDF} disabled={isExporting} className="w-full py-3 rounded-lg bg-primary hover:bg-primary-light text-white font-bold shadow-lg transition-all mt-4 flex items-center justify-center gap-2">
-                        {isExporting ? 'Generating...' : 'Download PDF'}
-                      </button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
           </motion.div>
         )}

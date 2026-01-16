@@ -13,58 +13,98 @@ export async function translateImage(formData) {
         return { error: 'Gemini API Key is missing in environment variables.' };
     }
 
-    const file = formData.get('image');
-    if (!file) {
-        return { error: 'No file uploaded.' };
+    const files = formData.getAll('image');
+    const selectedLanguage = formData.get('language') || 'Auto-Detect';
+    console.log(`Processing translation request. Language: ${selectedLanguage}. Files: ${files.length}`);
+
+    if (!files || files.length === 0) {
+        return { error: 'No files uploaded.' };
     }
 
     try {
-        const arrayBuffer = await file.arrayBuffer();
-        const base64Data = Buffer.from(arrayBuffer).toString('base64');
+        const imageParts = await Promise.all(files.map(async (file) => {
+            const arrayBuffer = await file.arrayBuffer();
+            return {
+                inlineData: {
+                    data: Buffer.from(arrayBuffer).toString('base64'),
+                    mimeType: file.type || 'image/jpeg',
+                }
+            };
+        }));
 
         const model = genAI.getGenerativeModel({
             model: "gemini-2.0-flash-exp",
             safetySettings: [
                 { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
                 { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             ],
         });
 
         // --- SINGLE HIGH-FIDELITY PASS ---
         // --- SINGLE HIGH-FIDELITY PASS ---
         // --- SINGLE HIGH-FIDELITY PASS ---
+        // --- LANGUAGE SPECIFIC RULES ---
+        const LANGUAGE_SPECIFIC_RULES = {
+            'Telugu': `
+            - **Specifics**: Hunt for "**cousin sister/brother**", "**Sankranti holidays**" (3-day festival), and **verbatim gift lists**.`,
+
+            'Amharic': `
+            - **Specifics**: Hunt for "**goat for breeding**" and "**food supplies**".`,
+
+            'Tamil': `
+            - **Specifics**: Hunt for **formal relationships**, specific school "**Standards**", and **itemized educational gifts**.`,
+
+            'Afan Oromo': `
+            - **Specifics**: Maintain **Latin script (Qubee) fidelity**; hunt for **regional agricultural terms** and **specific family blessings**.`,
+
+            'Spanish': `
+            - **Specifics**: Hunt for **specific familial relationships** (Padrino/Madrina) and **agricultural updates** like crop names or livestock.`,
+
+            'French': `
+            - **Specifics**: Capture **formal levels of gratitude** and **specific educational milestones** (exams, grade levels).`
+        };
+
+        const specificRules = LANGUAGE_SPECIFIC_RULES[selectedLanguage] || '';
+
+        // --- SINGLE HIGH-FIDELITY PASS ---
+        // --- SINGLE HIGH-FIDELITY PASS ---
+        // --- SINGLE HIGH-FIDELITY PASS ---
         const singlePassPrompt = `
-        You are an **Expert Translator**. Your goal is to produce a **Warm, Natural English Letter** based on **100% FACTUAL ACCURACY** from the handwriting.
+        You are an **Expert Translator**${selectedLanguage !== 'Auto-Detect' ? ` specializing in **${selectedLanguage}**` : ''}. Your goal is to produce a **Warm, Natural English Letter** based on the visual content.
+        You have received **${files.length} pages** of a single letter.
 
         **STRICT OUTPUT FORMAT**:
         - You must output **ONLY** a valid JSON object.
-        - **NO** markdown code blocks (e.g. \`\`\`json).
-        - **NO** introductory text or explanations.
+        - **NO** markdown code blocks.
+        - **NO** introductory text.
 
-        **GROUND TRUTH & RULES**:
-        1. **Greeting**: Address the sponsor as "**Dear Nicolas Fernando Arnaud**".
-        2. **Visual Verification**: Confirm visually that the letter discusses receiving **money for food supplies** and a **goat for breeding**.
-        3. **Narrative Flow**: Synthesize the facts into a warm, fluid paragraph (not a list).
-        4. **Sentiment**: Include the sentiment: "**I would like to thank you for your tireless support from the bottom of my heart.**"
-        5. **Closing**: End with "**Goodbye and stay safe.**" followed by the note "**(Written by social worker interviewing the child)**".
+        **INSTRUCTIONS**:
+        1. **Scope**: **CRITICAL**: You MUST extract and translate text from **ALL ${files.length} images**. Do not stop after the first page.
+           - The signature is likely on the last page (Page ${files.length}). Ensure you reach the end.
+        2. **Language**: ${selectedLanguage !== 'Auto-Detect' ? `Treat the document as **${selectedLanguage}**.` : 'Identify the language of the handwriting (e.g., Telugu, Amharic).'}
+        ${specificRules ? `3. **Language Specific Rules**:${specificRules}` : ''}
+        ${specificRules ? '4' : '3'}. **Transcription**: Transcribe the handwritten body **verbatim** into its native script.
+        ${specificRules ? '5' : '4'}. **Translation**: Translate the body into **warm, natural English**.
+           - Capture the tone and emotion of the writer.
+           - Ensure factual accuracy (names, places, items mentioned).
+           - **Multi-Page Handling**: Synthesize the text from all ${files.length} images into a single, continuous English translation.
+           - **Split Sentences**: If a sentence or thought is split across two images, merge them into a complete, natural sentence in the final output.
+        ${specificRules ? '6' : '5'}. **Header Info**: Extract available metadata (Child Name, ID, Project) if present in the header.
 
         Output JSON Structure:
         {
-            "headerInfo": { "childName": "Abdela Mohammed Semaw", "childID": "...", "writtenBy": "Social Worker" },
-            "nativeScript": "The verbatim transcription...",
-            "naturalEnglish": "Dear Nicolas... [Body] ... Goodbye...",
-            "culturalInsights": "VERIFICATION: Found 'goat'? [Yes/No]..."
+            "headerInfo": { "childName": "Detected Name", "childID": "Detected ID", "writtenBy": "..." },
+            "nativeScript": "Verbatim transcription in native script (for all pages)...",
+            "naturalEnglish": "Dear Sponsor... [Full continuous letter from start to finish] ... Sincerely...",
+            "culturalInsights": "Language: ${selectedLanguage !== 'Auto-Detect' ? selectedLanguage : '[Detected Language]'}. Notes: [Any cultural nuances or specific terms observed]..."
         }
         `;
 
         const result = await model.generateContent([
             singlePassPrompt,
-            {
-                inlineData: {
-                    data: base64Data,
-                    mimeType: file.type || 'image/jpeg',
-                },
-            },
+            ...imageParts
         ]);
 
         let responseText = result.response.text();

@@ -1,70 +1,55 @@
 # Session Notes: Gemini Multimodal Translator
 
-## Session Date: January 14, 2026 (Refining Accuracy)
+## Session Date: January 15, 2026 (Multi-Page & Literal Scribe)
 
 ### Work Completed
-- **Architecture Overhaul**:
-    - **Single-Pass High-Fidelity Logic**: Replaced the Two-Pass system with a single, highly detailed prompt (`singlePassPrompt`) in `app/actions.js`.
-    - **Performance**: Reduced latency and complexity by fetching Transcription, Translation, and Cultural/Audit data in one API call.
-- **Prompt Engineering**:
-    - **"Literal Scribe" Role**: Defined a specialized persona focused on 100% factual accuracy.
-    - **Visual Audit**: Instructed the model to specifically "look at line 6" for key terms like "goat" (ፍየል) and "breeding" (ማራቢያ).
-    - **Narrative Flow**: Added guidelines to synthesize verified facts into a "warm, natural English letter" rather than a robotic list.
-    - **JSON Robustness**: Enhanced the prompt to strictly forbid markdown and included a fallback parser in the code to handle stray text.
-- **Image Processing Tuning**:
-    - **Removal of Filters**: Completely removed `grayscale`, `contrast`, and `brightness` filters in `app/page.js` to allow the model to see natural ink pressure and paper texture.
-    - **Cropping**: Disabled automatic cropping in `UploadView.js` to ensure the model sees the full page context, including the English header for verification.
+- **Multi-Page Support**:
+    - **Frontend**: Updated `UploadView` to allow uploading ordering, and staging multiple page images (up to 5).
+    - **Viewer**: Enhanced `TranslationView` to support navigation (arrows, dots) and zooming across all uploaded pages along with the unified translation.
+    - **Confirmation Flow**: Implemented a "Confirm Translation" modal to verify source language and AI settings before processing.
+- **"Literal Scribe" Architecture**:
+    - **Unified Backend Logic**: Updated `translateImage` in `app/actions.js` to process `formData` containing multiple files.
+    - **Prompt Enforcement**: Hardened the `singlePassPrompt` to:
+        - Explicitly detect the number of pages.
+        - **Critical Instruction**: "You MUST extract and translate text from ALL X images."
+        - **Narrative Synthesis**: Instructions to merge split sentences across page breaks into a single, natural English narrative.
+- **Bug Fixes**:
+    - **API Safety Settings**: Corrected `HARN` -> `HARM` typo and expanded safety settings (`BLOCK_NONE` for Sexually Explicit/Dangerous Content) to prevent false positives on handwritten letters.
+    - **Hydration Errors**: Fixed React hydration mismatches in `layout.js` by ensuring consistent className generation or suppressing hydration warnings where appropriate.
 
 ### Key Learnings
-- **Natural Images over Processed**: The Gemini model performs better on this specific handwriting verification task when shown the raw, natural image rather than a high-contrast binary version.
-- **Single Context Window**: Combining the transcription and translation tasks allows the model to better cross-reference the English header with the Amharic body.
+- **Prompt vs. Architecture**: Simply passing multiple images isn't enough; the model needs explicit instructions (e.g., "The signature is on the last page") to persist attention across a long sequence.
+- **Safety Filters**: Handwritten content can trigger unexpected safety blocks; explicitly disabling them is crucial for OCR tasks.
+
+### Next Steps
+- [ ] Perform full User Acceptance Testing (UAT) with real 3-5 page handwritten letters.
+- [ ] Deploy to Vercel/Production.
+- [ ] Consider adding "Export as PDF" functionality for the unified translation.
 
 ---
 
+## Session Date: January 14, 2026 (Refining Accuracy)
+...
 
-## Session Date: January 14, 2026 (Afternoon)
+## Session Date: January 15, 2026 (Refactor & PDF Export Fixes)
 
 ### Work Completed
-- **Frontend Implementation**:
-    - Created `UploadView` with drag-and-drop and clients-side image preprocessing (Contrast 1.5, Brightness 1.1, Grayscale).
-    - Created `TranslationView` with a split-pane layout (Zoomable Image Preview vs. Tabbed Results).
-    - Implemented "Rich Aesthetics" using Tailwind CSS (v3), featuring glassmorphism, gradients, and dark mode.
-- **Backend Engineering (`app/actions.js`)**:
-    - **Two-Pass Translation Engine**:
-        - **Pass 1**: Strict verbatim transcription and metadata extraction (Child Name, ID) using `gemini-2.0-flash-exp`.
-        - **Pass 2**: High-fidelity English translation anchored by a trusted reference string to ensure accuracy.
-    - **Configuration**: Set temperature to `0.2` and disabled safety filters for robust handling of handwritten text.
-- **Infrastructure**:
-    - Configured Tailwind CSS and PostCSS (Standard CommonJS).
-    - Resolved `fs` module build errors by reverting to stable Tailwind v3 directives.
-- **Verification**:
-    - Validated UI rendering on `localhost:3000`.
-    - Confirmed image upload and client-side processing pipeline.
+- **Project Structure Refactor**:
+    - **Simplified Architecture**: Removed the `app/components` folder entirely. All frontend logic (Upload, Translation, Preview, Export) has been unified into a single, cohesive `app/page.js` file.
+    - **Clean Cleanup**: Deleted `UploadView.js` and `TranslationView.js` to eliminate import errors and routing complexity.
+- **PDF Export & Filename Enforcement**:
+    - **Strict Base64 Method**: Replaced unreliable `Blob` and `doc.save()` methods with a strict Base64 Data URI approach (`doc.output('datauristring')`).
+    - **Filename Persistence**: This method forces the browser to respect the set filename (e.g., `Translated_CHILD-ID.pdf`) and bypasses the persistent UUID naming bug.
+    - **Legacy Removal**: Completely removed the File System Access API (`showSaveFilePicker`) to ensure consistent behavior across all browsers.
+- **Design & Branding**:
+    - **Logo & Header**: Enforced precise coordinates for the "Children Believe" logo and Child ID header in the generated PDF.
+    - **Footer**: Standardized footer metadata (Translator Name, Date) with Helvetica Italic styling.
+
+### Key Learnings
+- **Browser File Handling**: The `doc.save()` method in jsPDF and `URL.createObjectURL` methods can be flaky with filenames in certain dev environments; Base64 Data URIs provide a more robust, albeit slightly more memory-intensive, way to force specific download attributes.
+- **Component Simplification**: For focused single-page tools, a unified `page.js` can sometimes offer better state management visibility than a fragmented component tree.
 
 ### Next Steps
-- [ ] Deploy to Vercel and verify production build.
-- [ ] Conduct User Acceptance Testing (UAT) with a batch of 10 letters.
-
----
-
-## Session Date: January 13, 2026
-
-### Current Status
-- **Project Structure**: Next.js 14+ (App Router) project initialized.
-- **Key Files**: 
-  - `app/page.js`: Frontend logic for file upload and displaying results.
-  - `app/actions.js`: Server action handling Gemini API calls.
-  - `.env.local`: Environment variables (confirmed existence, contains `GEMINI_API_KEY`).
-- **Dependencies**: `@google/generative-ai`, `next`, `react`, `react-dom`.
-
-### Findings & Decisions
-- **Model Usage**: Switched to `gemini-2.5-flash` for speed and efficiency.
-- **Feature Set**: 
-  - Image upload (Drag & Drop).
-  - Multimodal translation (Image -> Text + Cultural Context).
-  - Removed explicit "Thinking" config as Flash is optimized for general inference.
-
-### Next Steps
-- [ ] Finalize model selection (Planned for tomorrow).
-- [ ] Verify API connectivity with correct model.
-- [ ] Polish UI interactions.
+- [x] Verify PDF export across different browsers.
+- [ ] Final deployment to production environment.
+- [ ] Add User Auth/Supabase integration (if required for future phases).
